@@ -2,7 +2,6 @@ import requests
 import pandas as pd
 import time
 import re
-import os
 
 def reconstruct_abstract(inverted_index):
     """
@@ -28,7 +27,7 @@ def clean_text(text):
     else:
         return text
 
-# Construct the filter query adapting the Web of Science search
+# Define the query for filtering OpenAlex works.
 query = (
     "title.search:(electromyostimulat* OR electrostimulat* OR "
     "\"muscle stimul*\" OR \"muscle stimulation\" OR "
@@ -43,16 +42,16 @@ query = (
     "\"mixed reality\" OR hapt* OR kinesth*)"
 )
 
-# Base URL for OpenAlex works (public API, no key needed)
+# Base URL for OpenAlex works
 url = "https://api.openalex.org/works"
 
-# Set up parameters using the filter parameter
+# Set up initial parameters
 params = {
     "filter": query,
     "per_page": 200  # Adjust as needed
 }
 
-# Make an initial request to check total matches
+# Initial API request to check total matches
 response = requests.get(url, params=params)
 data = response.json()
 total_matches = data.get("meta", {}).get("count", 0)
@@ -64,9 +63,9 @@ if proceed.lower() != "y":
     print("Exiting without retrieving records.")
     exit()
 
-# --- Retrieve a wide set of records using pagination ---
-per_page = 200   # Maximum per page (if allowed)
-cursor = "*"     # Initial cursor value
+# Retrieve records using pagination
+per_page = 200
+cursor = "*"
 records_wide = []
 
 print("Starting wide search using revised filter query...")
@@ -91,7 +90,7 @@ while True:
         # Basic metadata extraction and cleaning of text fields
         title = clean_text(work.get("display_name", ""))
         
-        # Abstract extraction
+        # Abstract extraction with fallback for inverted index
         abstract = work.get("abstract", "")
         if not abstract or abstract.strip() == "":
             inverted = work.get("abstract_inverted_index", None)
@@ -101,24 +100,22 @@ while True:
             abstract = "No abstract available"
         abstract = clean_text(abstract)
         
-        # Concepts (subject areas)
+        # Extract concepts
         concepts_list = work.get("concepts", [])
         concepts = ", ".join([clean_text(c.get("display_name", "")) for c in concepts_list])
         
-        # Identifiers and basic metadata
+        # Metadata extraction
         openalex_id = work.get("id", "")
         doi = work.get("doi", "")
         
-        # URL
         primary_location = work.get("primary_location") or {}
         url_primary = primary_location.get("url", "")
         
-        # Publication details
         publication_date = work.get("publication_date", "")
         publication_year = work.get("publication_year", "")
         language = work.get("language", "")
         
-        # Authors and affiliations
+        # Authors and affiliations extraction
         authorships = work.get("authorships", [])
         authors = []
         affiliations = []
@@ -135,15 +132,13 @@ while True:
         authors_str = ", ".join(authors)
         affiliations_str = ", ".join(affiliations)
         
-        # Venue information
+        # Venue, citation, and open access information extraction
         host_venue = work.get("host_venue", {})
         venue = clean_text(host_venue.get("display_name", ""))
         
-        # Citation and reference counts
         cited_by_count = work.get("cited_by_count", 0)
         reference_count = work.get("reference_count", len(work.get("referenced_works", [])))
         
-        # Open Access information
         open_access = work.get("open_access", {})
         is_oa = open_access.get("is_oa", False)
         oa_status = open_access.get("oa_status", "")
@@ -177,13 +172,12 @@ while True:
         break
     cursor = new_cursor
     print(f"Collected {len(records_wide)} records so far...")
-    time.sleep(1)  # Pause to be polite with the API
+    time.sleep(1)
 
 print(f"Total records retrieved in wide search: {len(records_wide)}")
 results_wide = pd.DataFrame(records_wide)
 
-# --- Save the wide results to an Excel file ---
-# Use an environment variable or default to a generic output path
-output_wide = os.environ.get("OPENALEX_OUTPUT_PATH", "results_openalex.xlsx")
+# Save the results to an Excel file (using a generic file name)
+output_wide = "openalex_results.xlsx"
 results_wide.to_excel(output_wide, index=False)
 print(f"Wide results saved to '{output_wide}'")

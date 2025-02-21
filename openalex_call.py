@@ -178,6 +178,11 @@ print(f"Total records retrieved in wide search: {len(records_wide)}")
 results_wide = pd.DataFrame(records_wide)
 
 # Save the results to an Excel file (using a generic file name)
-output_wide = "openalex_results.xlsx"
+output_dir = "output_data"  # Directory to save output files (consistent with gemini_call.py)
+output_filename = "Electromyostimulation_MotorLearning_OpenAlex.xlsx" # Consistent filename if you want
+output_wide = f"{output_dir}/{output_filename}" # Construct relative path
+import os # Make sure os is imported at the top of the script
+if not os.path.exists(output_dir): # Create the directory if it doesn't exist
+    os.makedirs(output_dir)
 results_wide.to_excel(output_wide, index=False)
 print(f"Wide results saved to '{output_wide}'")
